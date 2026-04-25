@@ -48,21 +48,20 @@
 
     function statusPill(status) {
         var map = {
-            in_stock:      'pill-green',
-            sold:          'pill-red',
-            returned:      'pill-amber',
-            paid:          'pill-green',
-            credit:        'pill-red',
-            partial:       'pill-amber',
-            pending:       'pill-amber',
-            repairing:     'pill-blue',
-            fixed:         'pill-green',
-            unrepairable:  'pill-red',
-            mobile:        'pill-purple',
-            accessory:     'pill-blue',
-            part:          'pill-gray',
-            credit_type:   'pill-red',
-            debit:         'pill-green',
+            in_stock:     'pill-green',
+            sold:         'pill-red',
+            returned:     'pill-amber',
+            paid:         'pill-green',
+            credit:       'pill-red',
+            partial:      'pill-amber',
+            pending:      'pill-amber',
+            repairing:    'pill-blue',
+            fixed:        'pill-green',
+            unrepairable: 'pill-red',
+            mobile:       'pill-purple',
+            accessory:    'pill-blue',
+            part:         'pill-gray',
+            debit:        'pill-green',
         };
         return '<span class="pill ' + (map[status] || 'pill-gray') + '">' + status + '</span>';
     }

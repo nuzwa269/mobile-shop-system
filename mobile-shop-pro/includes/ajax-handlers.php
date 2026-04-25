@@ -583,23 +583,35 @@ function msp_ajax_get_repairs() {
 
     $status = sanitize_text_field( wp_unslash( $_POST['status'] ?? '' ) );
     $where  = 'WHERE 1=1';
+    $params = array();
 
     if ( $status ) {
         $allowed_statuses = array( 'pending', 'repairing', 'fixed', 'unrepairable' );
         if ( in_array( $status, $allowed_statuses, true ) ) {
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $where = $wpdb->prepare( 'WHERE rl.status = %s', $status );
+            $where   .= ' AND rl.status = %s';
+            $params[] = $status;
         }
     }
 
-    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-    $rows = $wpdb->get_results(
-        "SELECT rl.*, COALESCE(u.display_name, 'N/A') AS customer_name
-         FROM {$wpdb->prefix}ms_repair_lab rl
-         LEFT JOIN {$wpdb->users} u ON u.ID = rl.customer_id
-         $where ORDER BY rl.received_date DESC LIMIT 200",
-        ARRAY_A
-    );
+    if ( $params ) {
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $sql = $wpdb->prepare(
+            "SELECT rl.*, COALESCE(u.display_name, 'N/A') AS customer_name
+             FROM {$wpdb->prefix}ms_repair_lab rl
+             LEFT JOIN {$wpdb->users} u ON u.ID = rl.customer_id
+             $where ORDER BY rl.received_date DESC LIMIT 200",
+            ...$params
+        );
+    } else {
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $sql = "SELECT rl.*, COALESCE(u.display_name, 'N/A') AS customer_name
+                FROM {$wpdb->prefix}ms_repair_lab rl
+                LEFT JOIN {$wpdb->users} u ON u.ID = rl.customer_id
+                $where ORDER BY rl.received_date DESC LIMIT 200";
+    }
+
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+    $rows = $wpdb->get_results( $sql, ARRAY_A );
 
     wp_send_json_success( $rows );
 }
@@ -610,8 +622,8 @@ function msp_ajax_add_repair() {
 
     $customer_id = (int) ( $_POST['customer_id'] ?? 0 );
 
-    // Auto-generate job card number: JC-YYYYMMDD-{random}
-    $job_card = 'JC-' . current_time( 'Ymd' ) . '-' . strtoupper( wp_generate_password( 5, false ) );
+    // Auto-generate job card number: JC-YYYYMMDD-{5 digit counter suffix}
+    $job_card = 'JC-' . current_time( 'Ymd' ) . '-' . str_pad( wp_rand( 1, 99999 ), 5, '0', STR_PAD_LEFT );
 
     $data = array(
         'job_card_number' => $job_card,
@@ -729,20 +741,32 @@ function msp_ajax_get_ledger() {
 
     $user_id = (int) ( $_POST['user_id'] ?? 0 );
     $where   = 'WHERE 1=1';
+    $params  = array();
 
     if ( $user_id ) {
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $where = $wpdb->prepare( 'WHERE l.user_id = %d', $user_id );
+        $where   .= ' AND l.user_id = %d';
+        $params[] = $user_id;
     }
 
-    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-    $rows = $wpdb->get_results(
-        "SELECT l.*, COALESCE(u.display_name, 'Unknown') AS user_name
-         FROM {$wpdb->prefix}ms_ledgers l
-         LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
-         $where ORDER BY l.transaction_date DESC LIMIT 200",
-        ARRAY_A
-    );
+    if ( $params ) {
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $sql = $wpdb->prepare(
+            "SELECT l.*, COALESCE(u.display_name, 'Unknown') AS user_name
+             FROM {$wpdb->prefix}ms_ledgers l
+             LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+             $where ORDER BY l.transaction_date DESC LIMIT 200",
+            ...$params
+        );
+    } else {
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $sql = "SELECT l.*, COALESCE(u.display_name, 'Unknown') AS user_name
+                FROM {$wpdb->prefix}ms_ledgers l
+                LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+                $where ORDER BY l.transaction_date DESC LIMIT 200";
+    }
+
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+    $rows = $wpdb->get_results( $sql, ARRAY_A );
 
     // Calculate balance per user
     $balance = 0;
@@ -883,7 +907,7 @@ function msp_ajax_get_report() {
     $date_from_obj = DateTime::createFromFormat( 'Y-m-d', $date_from );
     $date_to_obj   = DateTime::createFromFormat( 'Y-m-d', $date_to );
     if ( ! $date_from_obj || ! $date_to_obj ) {
-        wp_send_json_error( array( 'message' => 'Invalid date format. Use Y-m-d.' ) );
+        wp_send_json_error( array( 'message' => 'Invalid date format. Use YYYY-MM-DD (e.g. 2024-01-15).' ) );
     }
 
     // Total sales and discount in period.

@@ -26,7 +26,7 @@ function msp_create_tables() {
         id            BIGINT(20)     UNSIGNED NOT NULL AUTO_INCREMENT,
         product_name  VARCHAR(255)   NOT NULL,
         category      ENUM('mobile','accessory','part') NOT NULL DEFAULT 'mobile',
-        variant       VARCHAR(255)   DEFAULT NULL COMMENT 'e.g. 128GB/Black',
+        variant       VARCHAR(255)   DEFAULT NULL COMMENT 'e.g. 128GB/Black (storage/color)',
         cost_price    DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
         selling_price DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
         stock_quantity INT(11)        NOT NULL DEFAULT 0,

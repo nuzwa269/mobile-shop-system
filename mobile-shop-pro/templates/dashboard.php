@@ -165,7 +165,7 @@
                   <label for="pos-payment-status">Payment Status</label>
                   <select id="pos-payment-status" class="msp-select">
                     <option value="paid">Paid</option>
-                    <option value="credit">Credit (Udhaar)</option>
+                    <option value="credit">Credit (Deferred Payment)</option>
                     <option value="partial">Partial</option>
                   </select>
                 </div>
@@ -293,7 +293,7 @@
           <div class="msp-table-wrap">
             <table class="msp-table">
               <thead>
-                <tr><th>#</th><th>Type</th><th>Amount</th><th>Description</th><th>Date</th><th>Del</th></tr>
+                <tr><th>#</th><th>Type</th><th>Amount</th><th>Description</th><th>Date</th><th>Delete</th></tr>
               </thead>
               <tbody id="expenses-tbody">
                 <tr><td colspan="6" style="text-align:center;padding:20px"><span class="msp-spinner"></span></td></tr>

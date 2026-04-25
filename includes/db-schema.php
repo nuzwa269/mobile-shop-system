@@ -142,7 +142,10 @@ function msp_create_tables() {
     dbDelta( $sql_customers );
 
     // Insert the default Walk-in Customer (ID 1) if not already present.
-    $walk_in = $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}ms_customers WHERE name = 'Walk-in Customer' LIMIT 1" );
+    $walk_in = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}ms_customers WHERE name = %s LIMIT 1",
+        'Walk-in Customer'
+    ) );
     if ( ! $walk_in ) {
         $wpdb->insert(
             $wpdb->prefix . 'ms_customers',

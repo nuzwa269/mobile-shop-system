@@ -134,6 +134,7 @@
     /* ════════════════════════════════════════════════════════════════════════ */
 
     var cart = [];
+    var custSearchTimer = null;
 
     function initPOS() {
         cart = [];
@@ -817,8 +818,8 @@
     }
 
     $('#customer-search').on('input', function () {
-        clearTimeout(window._custTimer);
-        window._custTimer = setTimeout(loadCustomers, 350);
+        clearTimeout(custSearchTimer);
+        custSearchTimer = setTimeout(loadCustomers, 350);
     });
 
     $('#btn-add-customer').on('click', function () {
@@ -1024,9 +1025,10 @@
                 $('#repair-customer-search').val(data.name);
                 $('#repair-customer-id').val(data.id);
             } else if (trigger === 'ledger') {
-                // Refresh the ledger customer select.
+                // Refresh the ledger customer select, then pre-select the new entry.
+                // The short delay allows the AJAX response from loadLedgerCustomers()
+                // to finish populating the <select> before we set its value.
                 loadLedgerCustomers();
-                // Pre-select the new customer in entry modal.
                 setTimeout(function () {
                     $('#ledger-entry-user').val(data.id);
                 }, 400);

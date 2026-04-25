@@ -31,7 +31,7 @@ function msp_ajax_get_customer_list() {
     msp_check_request();
     global $wpdb;
 
-    $search = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
+    $search = sanitize_text_field( wp_unslash( $_POST['search'] ?? '' ) );
 
     if ( $search ) {
         $rows = $wpdb->get_results( $wpdb->prepare(
@@ -253,7 +253,7 @@ function msp_ajax_get_customer_statement() {
     foreach ( $ledger as $entry ) {
         if ( 'debit' === $entry['transaction_type'] ) {
             $balance += (float) $entry['amount'];
-        } else {
+        } elseif ( 'credit' === $entry['transaction_type'] ) {
             $balance -= (float) $entry['amount'];
         }
     }

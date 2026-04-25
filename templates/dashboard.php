@@ -162,7 +162,7 @@
                   <label>Customer</label>
                   <div class="msp-customer-field">
                     <div class="msp-customer-search-wrap">
-                      <input type="text" id="pos-customer-search" class="msp-input" placeholder="🔍 Search by name or phone…" autocomplete="off">
+                      <input type="text" id="pos-customer-search" class="msp-input" placeholder="🔍 Search by name or phone…" autocomplete="off" aria-label="Search customer by name or phone">
                       <div id="pos-customer-dropdown" class="msp-customer-dropdown" style="display:none"></div>
                     </div>
                     <input type="hidden" id="pos-customer-id" value="0">
@@ -498,7 +498,7 @@
             <label>Customer</label>
             <div class="msp-customer-field">
               <div class="msp-customer-search-wrap">
-                <input type="text" id="repair-customer-search" class="msp-input" placeholder="🔍 Search customer…" autocomplete="off">
+                <input type="text" id="repair-customer-search" class="msp-input" placeholder="🔍 Search customer…" autocomplete="off" aria-label="Search customer by name or phone">
                 <div id="repair-customer-dropdown" class="msp-customer-dropdown" style="display:none"></div>
               </div>
               <input type="hidden" id="repair-customer-id" value="">

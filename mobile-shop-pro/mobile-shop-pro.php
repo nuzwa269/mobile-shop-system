@@ -4,7 +4,7 @@
  * Plugin URI:        https://github.com/nuzwa269/mobile-shop-system
  * Description:       A complete, standalone POS, Inventory, Repair Lab, CRM, and Ledger management system for mobile shops. Designed and Developed by Sikandar Hayat Baba.
  * Version:           1.0.0
- * Author:            Sikandar Hayat Baba
+ * Author:            coachproai
  * Author URI:        #
  * License:           GPL-2.0+
  * Text Domain:       mobile-shop-pro

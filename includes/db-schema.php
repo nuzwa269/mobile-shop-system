@@ -118,6 +118,20 @@ function msp_create_tables() {
         KEY expense_date (expense_date)
     ) $charset_collate;";
 
+    // ── 8. Customers ──────────────────────────────────────────────────────────
+    $sql_customers = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ms_customers (
+        id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        name          VARCHAR(255)   NOT NULL,
+        phone         VARCHAR(50)    NOT NULL DEFAULT '',
+        email         VARCHAR(255)   DEFAULT NULL,
+        address       TEXT           DEFAULT NULL,
+        total_balance DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
+        created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY phone (phone),
+        KEY name (name)
+    ) $charset_collate;";
+
     dbDelta( $sql_inventory );
     dbDelta( $sql_imei );
     dbDelta( $sql_sales );
@@ -125,6 +139,21 @@ function msp_create_tables() {
     dbDelta( $sql_repair );
     dbDelta( $sql_ledgers );
     dbDelta( $sql_expenses );
+    dbDelta( $sql_customers );
+
+    // Insert the default Walk-in Customer (ID 1) if not already present.
+    $walk_in = $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}ms_customers WHERE name = 'Walk-in Customer' LIMIT 1" );
+    if ( ! $walk_in ) {
+        $wpdb->insert(
+            $wpdb->prefix . 'ms_customers',
+            array(
+                'name'  => 'Walk-in Customer',
+                'phone' => '0000000000',
+                'email' => '',
+            ),
+            array( '%s', '%s', '%s' )
+        );
+    }
 
     update_option( 'msp_db_version', MSP_VERSION );
 }

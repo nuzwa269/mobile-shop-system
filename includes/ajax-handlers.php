@@ -88,9 +88,9 @@ function msp_ajax_get_metrics() {
     // Recent 5 sales
     $recent_sales = $wpdb->get_results(
         "SELECT ps.id, ps.net_total, ps.payment_status, ps.sale_date,
-                COALESCE(u.display_name, 'Walk-in') AS customer_name
+                COALESCE(c.name, 'Walk-in') AS customer_name
          FROM {$wpdb->prefix}ms_pos_sales ps
-         LEFT JOIN {$wpdb->users} u ON u.ID = ps.customer_id
+         LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = ps.customer_id
          ORDER BY ps.sale_date DESC LIMIT 5",
         ARRAY_A
     );
@@ -558,9 +558,9 @@ function msp_ajax_get_sales() {
 
     $rows = $wpdb->get_results(
         "SELECT ps.id, ps.total_amount, ps.discount, ps.net_total, ps.payment_status, ps.sale_date,
-                COALESCE(u.display_name, 'Walk-in') AS customer_name
+                COALESCE(c.name, 'Walk-in') AS customer_name
          FROM {$wpdb->prefix}ms_pos_sales ps
-         LEFT JOIN {$wpdb->users} u ON u.ID = ps.customer_id
+         LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = ps.customer_id
          ORDER BY ps.sale_date DESC LIMIT 100",
         ARRAY_A
     );
@@ -596,17 +596,17 @@ function msp_ajax_get_repairs() {
     if ( $params ) {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $sql = $wpdb->prepare(
-            "SELECT rl.*, COALESCE(u.display_name, 'N/A') AS customer_name
+            "SELECT rl.*, COALESCE(c.name, 'N/A') AS customer_name
              FROM {$wpdb->prefix}ms_repair_lab rl
-             LEFT JOIN {$wpdb->users} u ON u.ID = rl.customer_id
+             LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = rl.customer_id
              $where ORDER BY rl.received_date DESC LIMIT 200",
             ...$params
         );
     } else {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $sql = "SELECT rl.*, COALESCE(u.display_name, 'N/A') AS customer_name
+        $sql = "SELECT rl.*, COALESCE(c.name, 'N/A') AS customer_name
                 FROM {$wpdb->prefix}ms_repair_lab rl
-                LEFT JOIN {$wpdb->users} u ON u.ID = rl.customer_id
+                LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = rl.customer_id
                 $where ORDER BY rl.received_date DESC LIMIT 200";
     }
 
@@ -713,26 +713,21 @@ add_action( 'wp_ajax_msp_get_ledger',    'msp_ajax_get_ledger' );
 add_action( 'wp_ajax_msp_add_ledger',    'msp_ajax_add_ledger' );
 add_action( 'wp_ajax_msp_get_customers', 'msp_ajax_get_customers' );
 
+/**
+ * Return customers from the centralized ms_customers table.
+ * Used to populate dropdowns in POS, Repair, and Ledger.
+ */
 function msp_ajax_get_customers() {
     msp_check_request();
+    global $wpdb;
 
-    $users = get_users( array(
-        'fields'  => array( 'ID', 'display_name', 'user_email' ),
-        'orderby' => 'display_name',
-        'order'   => 'ASC',
-        'number'  => 200,
-    ) );
+    $rows = $wpdb->get_results(
+        "SELECT id, name, phone, email FROM {$wpdb->prefix}ms_customers
+         ORDER BY name ASC LIMIT 300",
+        ARRAY_A
+    );
 
-    $result = array();
-    foreach ( $users as $user ) {
-        $result[] = array(
-            'id'    => $user->ID,
-            'name'  => $user->display_name,
-            'email' => $user->user_email,
-        );
-    }
-
-    wp_send_json_success( $result );
+    wp_send_json_success( $rows );
 }
 
 function msp_ajax_get_ledger() {
@@ -751,17 +746,17 @@ function msp_ajax_get_ledger() {
     if ( $params ) {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $sql = $wpdb->prepare(
-            "SELECT l.*, COALESCE(u.display_name, 'Unknown') AS user_name
+            "SELECT l.*, COALESCE(c.name, 'Unknown') AS user_name
              FROM {$wpdb->prefix}ms_ledgers l
-             LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+             LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = l.user_id
              $where ORDER BY l.transaction_date DESC LIMIT 200",
             ...$params
         );
     } else {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $sql = "SELECT l.*, COALESCE(u.display_name, 'Unknown') AS user_name
+        $sql = "SELECT l.*, COALESCE(c.name, 'Unknown') AS user_name
                 FROM {$wpdb->prefix}ms_ledgers l
-                LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+                LEFT JOIN {$wpdb->prefix}ms_customers c ON c.id = l.user_id
                 $where ORDER BY l.transaction_date DESC LIMIT 200";
     }
 

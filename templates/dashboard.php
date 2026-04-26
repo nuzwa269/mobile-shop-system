@@ -39,6 +39,9 @@
       <li id="nav-inventory" data-section="inventory">
         <a href="#"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
       </li>
+      <li id="nav-customers" data-section="customers">
+        <a href="#"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+      </li>
       <li id="nav-repair" data-section="repair">
         <a href="#"><span class="nav-icon">🔧</span><span class="nav-label">Repair Lab</span></a>
       </li>
@@ -156,10 +159,15 @@
               <div class="msp-card-title">⚙️ Sale Options</div>
               <div class="msp-form-row">
                 <div class="msp-form-group">
-                  <label for="pos-customer">Customer</label>
-                  <select id="pos-customer" class="msp-select">
-                    <option value="">Walk-in Customer</option>
-                  </select>
+                  <label>Customer</label>
+                  <div class="msp-customer-field">
+                    <div class="msp-customer-search-wrap">
+                      <input type="text" id="pos-customer-search" class="msp-input" placeholder="🔍 Search by name or phone…" autocomplete="off" aria-label="Search customer by name or phone">
+                      <div id="pos-customer-dropdown" class="msp-customer-dropdown" style="display:none"></div>
+                    </div>
+                    <input type="hidden" id="pos-customer-id" value="0">
+                    <button type="button" id="btn-pos-quick-add-customer" class="msp-btn msp-btn-sm msp-btn-green">＋ New</button>
+                  </div>
                 </div>
                 <div class="msp-form-group">
                   <label for="pos-payment-status">Payment Status</label>
@@ -227,6 +235,28 @@
           </div>
         </div>
       </div><!-- /inventory -->
+
+      <!-- ════════════════════════════════════════════════════════════════════ -->
+      <!-- CUSTOMERS SECTION                                                     -->
+      <!-- ════════════════════════════════════════════════════════════════════ -->
+      <div id="section-customers" class="msp-section">
+        <div class="msp-toolbar">
+          <button id="btn-add-customer" class="msp-btn msp-btn-green">＋ Add Customer</button>
+          <input type="text" id="customer-search" class="msp-input msp-search-blue" placeholder="🔍 Search customers…" style="max-width:280px">
+        </div>
+        <div class="msp-card">
+          <div class="msp-table-wrap">
+            <table class="msp-table">
+              <thead>
+                <tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th>Address</th><th>Balance</th><th>Joined</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="customers-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:20px"><span class="msp-spinner"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /customers -->
 
       <!-- ════════════════════════════════════════════════════════════════════ -->
       <!-- REPAIR LAB SECTION                                                    -->
@@ -465,10 +495,15 @@
         <input type="hidden" id="repair-form-id">
         <div class="msp-form-row">
           <div class="msp-form-group">
-            <label for="repair-customer">Customer</label>
-            <select id="repair-customer" class="msp-select">
-              <option value="">No Customer</option>
-            </select>
+            <label>Customer</label>
+            <div class="msp-customer-field">
+              <div class="msp-customer-search-wrap">
+                <input type="text" id="repair-customer-search" class="msp-input" placeholder="🔍 Search customer…" autocomplete="off" aria-label="Search customer by name or phone">
+                <div id="repair-customer-dropdown" class="msp-customer-dropdown" style="display:none"></div>
+              </div>
+              <input type="hidden" id="repair-customer-id" value="">
+              <button type="button" id="btn-repair-quick-add-customer" class="msp-btn msp-btn-sm msp-btn-green">＋ Add</button>
+            </div>
           </div>
           <div class="msp-form-group">
             <label for="repair-device">Device Model *</label>
@@ -513,10 +548,15 @@
     <div class="msp-modal-body">
       <form id="form-ledger">
         <div class="msp-form-group">
-          <label for="ledger-entry-user">Customer / Supplier *</label>
-          <select id="ledger-entry-user" class="msp-select" required>
-            <option value="">Select…</option>
-          </select>
+          <label>Customer *</label>
+          <div class="msp-customer-field">
+            <div style="flex:1">
+              <select id="ledger-entry-user" class="msp-select" required>
+                <option value="">Select customer…</option>
+              </select>
+            </div>
+            <button type="button" id="btn-ledger-quick-add-customer" class="msp-btn msp-btn-sm msp-btn-green">＋ New</button>
+          </div>
         </div>
         <div class="msp-form-row">
           <div class="msp-form-group">
@@ -594,6 +634,97 @@
     <div class="msp-modal-footer">
       <button id="btn-print-receipt" class="msp-btn msp-btn-primary">🖨️ Print Receipt</button>
       <button class="msp-btn msp-btn-ghost msp-modal-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Customer Modal -->
+<div id="modal-customer" class="msp-modal-overlay" style="display:none">
+  <div class="msp-modal">
+    <div class="msp-modal-header">
+      <h3 id="modal-customer-title">Add Customer</h3>
+      <button class="msp-modal-close" type="button">✕</button>
+    </div>
+    <div class="msp-modal-body">
+      <form id="form-customer">
+        <input type="hidden" id="customer-form-id">
+        <div class="msp-form-row">
+          <div class="msp-form-group">
+            <label for="customer-name">Full Name *</label>
+            <input type="text" id="customer-name" class="msp-input" required placeholder="e.g. Ahmad Ali">
+          </div>
+          <div class="msp-form-group">
+            <label for="customer-phone">Phone *</label>
+            <input type="text" id="customer-phone" class="msp-input" required placeholder="03xx-xxxxxxx">
+          </div>
+        </div>
+        <div class="msp-form-row">
+          <div class="msp-form-group">
+            <label for="customer-email">Email</label>
+            <input type="email" id="customer-email" class="msp-input" placeholder="optional@email.com">
+          </div>
+          <div class="msp-form-group">
+            <label for="customer-address">Address</label>
+            <input type="text" id="customer-address" class="msp-input" placeholder="Optional">
+          </div>
+        </div>
+        <div class="msp-modal-footer" style="padding:0;border:0;margin-top:6px">
+          <button type="button" class="msp-btn msp-btn-ghost msp-modal-close">Cancel</button>
+          <button type="submit" class="msp-btn msp-btn-green">💾 Save Customer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Quick-Add Customer Modal (triggered from POS / Repair / Ledger) -->
+<div id="modal-quick-customer" class="msp-modal-overlay" style="display:none">
+  <div class="msp-modal" style="max-width:480px">
+    <div class="msp-modal-header">
+      <h3>➕ Quick Add Customer</h3>
+      <button class="msp-modal-close" type="button">✕</button>
+    </div>
+    <div class="msp-modal-body">
+      <form id="form-quick-customer">
+        <input type="hidden" id="qc-trigger" value="">
+        <div class="msp-form-row">
+          <div class="msp-form-group">
+            <label for="qc-name">Full Name *</label>
+            <input type="text" id="qc-name" class="msp-input" required placeholder="e.g. Ahmad Ali">
+          </div>
+          <div class="msp-form-group">
+            <label for="qc-phone">Phone *</label>
+            <input type="text" id="qc-phone" class="msp-input" required placeholder="03xx-xxxxxxx">
+          </div>
+        </div>
+        <div class="msp-form-row">
+          <div class="msp-form-group">
+            <label for="qc-email">Email</label>
+            <input type="email" id="qc-email" class="msp-input" placeholder="optional@email.com">
+          </div>
+          <div class="msp-form-group">
+            <label for="qc-address">Address</label>
+            <input type="text" id="qc-address" class="msp-input" placeholder="Optional">
+          </div>
+        </div>
+        <div class="msp-modal-footer" style="padding:0;border:0;margin-top:6px">
+          <button type="button" class="msp-btn msp-btn-ghost msp-modal-close">Cancel</button>
+          <button type="submit" class="msp-btn msp-btn-green">💾 Save &amp; Select</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Statement Modal -->
+<div id="modal-customer-statement" class="msp-modal-overlay" style="display:none">
+  <div class="msp-modal" style="max-width:720px">
+    <div class="msp-modal-header">
+      <h3 id="statement-title">📋 Customer Statement</h3>
+      <button class="msp-modal-close" type="button">✕</button>
+    </div>
+    <div class="msp-modal-body" id="statement-body">
+      <div style="text-align:center;padding:30px"><span class="msp-spinner"></span></div>
     </div>
   </div>
 </div>

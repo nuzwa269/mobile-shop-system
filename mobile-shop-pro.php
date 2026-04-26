@@ -24,6 +24,7 @@ define( 'MSP_DEVELOPER',  'Designed and Developed by Sikandar Hayat Baba' );
 // ─── Include Core Files ──────────────────────────────────────────────────────
 require_once MSP_PLUGIN_DIR . 'includes/db-schema.php';
 require_once MSP_PLUGIN_DIR . 'includes/ajax-handlers.php';
+require_once MSP_PLUGIN_DIR . 'includes/customer-logic.php';
 require_once MSP_PLUGIN_DIR . 'includes/shortcode.php';
 
 // ─── Activation / Deactivation Hooks ────────────────────────────────────────

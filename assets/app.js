@@ -85,6 +85,7 @@
             inventory:  loadInventory,
             repair:     loadRepairs,
             crm:        loadLedger,
+            customers:  loadCustomers,
             reports:    loadReports,
             expenses:   loadExpenses,
         };
@@ -133,22 +134,15 @@
     /* ════════════════════════════════════════════════════════════════════════ */
 
     var cart = [];
+    var custSearchTimer = null;
 
     function initPOS() {
         cart = [];
         renderCart();
-        loadPOSCustomers();
+        // Reset customer to Walk-in on each POS init.
+        $('#pos-customer-search').val('Walk-in Customer');
+        $('#pos-customer-id').val('0');
         $('#msp-barcode-input').focus();
-    }
-
-    function loadPOSCustomers() {
-        ajax('msp_get_customers', {}, function (data) {
-            var opts = '<option value="">Walk-in Customer</option>';
-            $.each(data, function (i, u) {
-                opts += '<option value="' + esc(String(u.id)) + '">' + esc(u.name) + '</option>';
-            });
-            $('#pos-customer').html(opts);
-        });
     }
 
     // ── Barcode / Product Search ─────────────────────────────────────────────
@@ -337,7 +331,7 @@
 
         ajax('msp_pos_checkout', {
             cart_items:     JSON.stringify(cartItems),
-            customer_id:    $('#pos-customer').val(),
+            customer_id:    $('#pos-customer-id').val() || 0,
             discount:       $('#pos-discount').val() || 0,
             payment_status: $('#pos-payment-status').val(),
         }, function (data) {
@@ -521,7 +515,9 @@
                             '<button class="msp-btn msp-btn-ghost msp-btn-sm repair-edit" ' +
                                 'data-id="' + r.id + '" data-model="' + esc(r.device_model) + '" ' +
                                 'data-issue="' + esc(r.issue_desc || '') + '" ' +
-                                'data-cost="' + r.est_cost + '" data-status="' + r.status + '">✏️ Update</button>' +
+                                'data-cost="' + r.est_cost + '" data-status="' + r.status + '" ' +
+                                'data-customer="' + esc(r.customer_name || '') + '" ' +
+                                'data-customerid="' + esc(String(r.customer_id || '')) + '">✏️ Update</button>' +
                             '<button class="msp-btn msp-btn-danger msp-btn-sm repair-delete" data-id="' + r.id + '">🗑️</button>' +
                         '</div></td>' +
                         '</tr>';
@@ -536,20 +532,12 @@
     $('#btn-add-repair').on('click', function () {
         $('#form-repair')[0].reset();
         $('#repair-form-id').val('');
+        $('#repair-customer-id').val('');
+        $('#repair-customer-search').val('');
+        $('#repair-customer-dropdown').hide();
         $('#modal-repair-title').text('New Repair Job');
-        loadRepairCustomers();
         openModal('modal-repair');
     });
-
-    function loadRepairCustomers() {
-        ajax('msp_get_customers', {}, function (data) {
-            var opts = '<option value="">No Customer</option>';
-            $.each(data, function (i, u) {
-                opts += '<option value="' + u.id + '">' + esc(u.name) + '</option>';
-            });
-            $('#repair-customer').html(opts);
-        });
-    }
 
     $(document).on('click', '.repair-edit', function () {
         var $el = $(this);
@@ -558,8 +546,13 @@
         $('#repair-issue').val($el.data('issue'));
         $('#repair-cost').val($el.data('cost'));
         $('#repair-status').val($el.data('status'));
+        // Populate customer search field with stored name.
+        var cname = $el.data('customer') || '';
+        var cid   = $el.data('customerid') || '';
+        $('#repair-customer-search').val(cname);
+        $('#repair-customer-id').val(cid);
+        $('#repair-customer-dropdown').hide();
         $('#modal-repair-title').text('Update Repair Job');
-        loadRepairCustomers();
         openModal('modal-repair');
     });
 
@@ -569,7 +562,7 @@
         var action = id ? 'msp_update_repair' : 'msp_add_repair';
         ajax(action, {
             id:           id,
-            customer_id:  $('#repair-customer').val(),
+            customer_id:  $('#repair-customer-id').val(),
             device_model: $('#repair-device').val(),
             issue_desc:   $('#repair-issue').val(),
             est_cost:     $('#repair-cost').val(),
@@ -602,11 +595,15 @@
 
     function loadLedgerCustomers() {
         ajax('msp_get_customers', {}, function (data) {
-            var opts = '<option value="">All Customers/Suppliers</option>';
+            var filterOpts = '<option value="">All Customers</option>';
+            var entryOpts  = '<option value="">Select customer…</option>';
             $.each(data, function (i, u) {
-                opts += '<option value="' + u.id + '">' + esc(u.name) + ' (' + esc(u.email) + ')</option>';
+                var label = esc(u.name) + (u.phone ? ' (' + esc(u.phone) + ')' : '');
+                filterOpts += '<option value="' + u.id + '">' + label + '</option>';
+                entryOpts  += '<option value="' + u.id + '">' + label + '</option>';
             });
-            $('#ledger-user-filter, #ledger-entry-user').html(opts);
+            $('#ledger-user-filter').html(filterOpts);
+            $('#ledger-entry-user').html(entryOpts);
         });
     }
 
@@ -782,7 +779,262 @@
 
     $('#btn-run-report').on('click', loadReports);
 
-    /* ── Global Modal Close Handlers ─────────────────────────────────────── */
+    /* ════════════════════════════════════════════════════════════════════════ */
+    /* SECTION: CUSTOMERS                                                       */
+    /* ════════════════════════════════════════════════════════════════════════ */
+
+    function loadCustomers() {
+        var search = $('#customer-search').val() || '';
+        ajax('msp_get_customer_list', { search: search }, function (data) {
+            var html = '';
+            if (!data.length) {
+                html = '<tr><td colspan="8"><div class="msp-empty"><div class="empty-icon">👥</div><p>No customers found.</p></div></td></tr>';
+            } else {
+                $.each(data, function (i, c) {
+                    var bal = parseFloat(c.total_balance);
+                    var balCol = bal > 0 ? 'var(--danger)' : (bal < 0 ? 'var(--success)' : '');
+                    html += '<tr>' +
+                        '<td>' + esc(String(c.id)) + '</td>' +
+                        '<td style="font-weight:600">' + esc(c.name) + '</td>' +
+                        '<td>' + esc(c.phone) + '</td>' +
+                        '<td>' + esc(c.email || '–') + '</td>' +
+                        '<td>' + esc(c.address || '–') + '</td>' +
+                        '<td style="font-weight:600;color:' + balCol + '">PKR ' + parseFloat(c.total_balance).toFixed(2) + '</td>' +
+                        '<td>' + esc(c.created_at ? c.created_at.substring(0, 10) : '–') + '</td>' +
+                        '<td><div class="actions">' +
+                            '<button class="msp-btn msp-btn-ghost msp-btn-sm cust-statement" ' +
+                                'data-id="' + c.id + '" data-name="' + esc(c.name) + '">📋</button>' +
+                            '<button class="msp-btn msp-btn-ghost msp-btn-sm cust-edit" ' +
+                                'data-id="' + c.id + '" data-name="' + esc(c.name) + '" ' +
+                                'data-phone="' + esc(c.phone) + '" data-email="' + esc(c.email || '') + '" ' +
+                                'data-address="' + esc(c.address || '') + '">✏️</button>' +
+                            '<button class="msp-btn msp-btn-danger msp-btn-sm cust-delete" data-id="' + c.id + '">🗑️</button>' +
+                        '</div></td>' +
+                        '</tr>';
+                });
+            }
+            $('#customers-tbody').html(html);
+        });
+    }
+
+    $('#customer-search').on('input', function () {
+        clearTimeout(custSearchTimer);
+        custSearchTimer = setTimeout(loadCustomers, 350);
+    });
+
+    $('#btn-add-customer').on('click', function () {
+        $('#form-customer')[0].reset();
+        $('#customer-form-id').val('');
+        $('#modal-customer-title').text('Add Customer');
+        openModal('modal-customer');
+    });
+
+    $(document).on('click', '.cust-edit', function () {
+        var $el = $(this);
+        $('#customer-form-id').val($el.data('id'));
+        $('#customer-name').val($el.data('name'));
+        $('#customer-phone').val($el.data('phone'));
+        $('#customer-email').val($el.data('email'));
+        $('#customer-address').val($el.data('address'));
+        $('#modal-customer-title').text('Edit Customer');
+        openModal('modal-customer');
+    });
+
+    $('#form-customer').on('submit', function (e) {
+        e.preventDefault();
+        var id     = $('#customer-form-id').val();
+        var action = id ? 'msp_update_customer' : 'msp_add_customer';
+        ajax(action, {
+            id:      id,
+            name:    $('#customer-name').val(),
+            phone:   $('#customer-phone').val(),
+            email:   $('#customer-email').val(),
+            address: $('#customer-address').val(),
+        }, function () {
+            closeModal('modal-customer');
+            toast('Customer saved!', 'success');
+            loadCustomers();
+        });
+    });
+
+    $(document).on('click', '.cust-delete', function () {
+        var id = $(this).data('id');
+        confirmAction('Delete this customer? Existing records will not be affected.', function () {
+            ajax('msp_delete_customer', { id: id }, function () {
+                toast('Customer deleted.', 'success');
+                loadCustomers();
+            });
+        });
+    });
+
+    // ── Customer Statement ────────────────────────────────────────────────────
+
+    $(document).on('click', '.cust-statement', function () {
+        var id   = $(this).data('id');
+        var name = $(this).data('name');
+        $('#statement-title').text('📋 Statement – ' + name);
+        $('#statement-body').html('<div style="text-align:center;padding:30px"><span class="msp-spinner"></span></div>');
+        openModal('modal-customer-statement');
+        ajax('msp_get_customer_statement', { customer_id: id }, function (data) {
+            var html = '<div style="margin-bottom:16px">' +
+                '<strong>Balance:</strong> <span style="color:' + (parseFloat(data.balance) > 0 ? 'var(--danger)' : 'var(--success)') + ';font-size:18px;font-weight:700">PKR ' + data.balance + '</span>' +
+                '</div>';
+
+            html += '<div class="msp-card-title" style="margin-bottom:8px">🛒 Sales (' + data.sales.length + ')</div>';
+            if (data.sales.length) {
+                html += '<div class="msp-table-wrap" style="margin-bottom:16px"><table class="msp-table"><thead><tr><th>#</th><th>Net Total</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+                $.each(data.sales, function (i, s) {
+                    html += '<tr><td>#' + esc(String(s.id)) + '</td><td>PKR ' + esc(s.net_total) + '</td><td>' + statusPill(s.payment_status) + '</td><td>' + esc(s.sale_date) + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<p style="color:var(--text-muted);margin-bottom:16px">No sales found.</p>';
+            }
+
+            html += '<div class="msp-card-title" style="margin-bottom:8px">🔧 Repairs (' + data.repairs.length + ')</div>';
+            if (data.repairs.length) {
+                html += '<div class="msp-table-wrap" style="margin-bottom:16px"><table class="msp-table"><thead><tr><th>Job Card</th><th>Device</th><th>Est. Cost</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+                $.each(data.repairs, function (i, r) {
+                    html += '<tr><td>' + esc(r.job_card_number) + '</td><td>' + esc(r.device_model) + '</td><td>PKR ' + esc(r.est_cost) + '</td><td>' + statusPill(r.status) + '</td><td>' + esc(r.received_date) + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<p style="color:var(--text-muted);margin-bottom:16px">No repairs found.</p>';
+            }
+
+            html += '<div class="msp-card-title" style="margin-bottom:8px">📒 Ledger (' + data.ledger.length + ')</div>';
+            if (data.ledger.length) {
+                html += '<div class="msp-table-wrap"><table class="msp-table"><thead><tr><th>Type</th><th>Amount</th><th>Description</th><th>Date</th></tr></thead><tbody>';
+                $.each(data.ledger, function (i, l) {
+                    var tc = l.transaction_type === 'debit' ? 'pill-red' : 'pill-green';
+                    html += '<tr><td><span class="pill ' + tc + '">' + esc(l.transaction_type) + '</span></td><td>PKR ' + esc(l.amount) + '</td><td>' + esc(l.description || '–') + '</td><td>' + esc(l.transaction_date) + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<p style="color:var(--text-muted)">No ledger entries found.</p>';
+            }
+
+            html += '<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-muted)">Designed and Developed by Sikandar Hayat Baba | CoachPro AI</div>';
+            $('#statement-body').html(html);
+        });
+    });
+
+    /* ════════════════════════════════════════════════════════════════════════ */
+    /* CUSTOMER SEARCH COMPONENT (POS + Repair)                                 */
+    /* ════════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * Initialize an AJAX-powered customer search input.
+     * @param {string} inputId    – text input element ID
+     * @param {string} dropdownId – dropdown container element ID
+     * @param {string} hiddenId   – hidden input element ID (stores customer_id)
+     * @param {function} onSelect – callback(id, name) when a customer is picked
+     */
+    function initCustomerSearch(inputId, dropdownId, hiddenId, onSelect) {
+        var timer = null;
+        var $input    = $('#' + inputId);
+        var $dropdown = $('#' + dropdownId);
+        var $hidden   = $('#' + hiddenId);
+
+        $input.on('input', function () {
+            clearTimeout(timer);
+            var term = $(this).val().trim();
+            if (term.length < 1) {
+                $dropdown.hide().empty();
+                $hidden.val('0');
+                return;
+            }
+            timer = setTimeout(function () {
+                ajax('msp_search_customers', { term: term }, function (data) {
+                    if (!data.length) {
+                        $dropdown.hide().empty();
+                        return;
+                    }
+                    var html = '';
+                    $.each(data, function (i, c) {
+                        html += '<div class="msp-cust-option" data-id="' + c.id + '" data-name="' + esc(c.name) + '">' +
+                            '<span class="cust-opt-name">' + esc(c.name) + '</span>' +
+                            '<span class="cust-opt-phone">' + esc(c.phone) + '</span>' +
+                            '</div>';
+                    });
+                    $dropdown.html(html).show();
+                });
+            }, 300);
+        });
+
+        $(document).on('click', '#' + dropdownId + ' .msp-cust-option', function () {
+            var id   = $(this).data('id');
+            var name = $(this).data('name');
+            $input.val(name);
+            $hidden.val(id);
+            $dropdown.hide().empty();
+            if (typeof onSelect === 'function') onSelect(id, name);
+        });
+
+        // Close dropdown when clicking outside.
+        $(document).on('click', function (e) {
+            if (!$(e.target).closest('#' + inputId + ', #' + dropdownId).length) {
+                $dropdown.hide();
+            }
+        });
+    }
+
+    // Init POS customer search.
+    initCustomerSearch('pos-customer-search', 'pos-customer-dropdown', 'pos-customer-id', null);
+
+    // Init Repair customer search.
+    initCustomerSearch('repair-customer-search', 'repair-customer-dropdown', 'repair-customer-id', null);
+
+    /* ════════════════════════════════════════════════════════════════════════ */
+    /* QUICK-ADD CUSTOMER MODAL                                                 */
+    /* ════════════════════════════════════════════════════════════════════════ */
+
+    function openQuickAddCustomer(trigger) {
+        $('#form-quick-customer')[0].reset();
+        $('#qc-trigger').val(trigger);
+        openModal('modal-quick-customer');
+    }
+
+    $('#btn-pos-quick-add-customer').on('click', function () {
+        openQuickAddCustomer('pos');
+    });
+    $('#btn-repair-quick-add-customer').on('click', function () {
+        openQuickAddCustomer('repair');
+    });
+    $('#btn-ledger-quick-add-customer').on('click', function () {
+        openQuickAddCustomer('ledger');
+    });
+
+    $('#form-quick-customer').on('submit', function (e) {
+        e.preventDefault();
+        ajax('msp_add_customer', {
+            name:    $('#qc-name').val(),
+            phone:   $('#qc-phone').val(),
+            email:   $('#qc-email').val(),
+            address: $('#qc-address').val(),
+        }, function (data) {
+            closeModal('modal-quick-customer');
+            toast('Customer "' + data.name + '" added!', 'success');
+
+            var trigger = $('#qc-trigger').val();
+
+            if (trigger === 'pos') {
+                $('#pos-customer-search').val(data.name);
+                $('#pos-customer-id').val(data.id);
+            } else if (trigger === 'repair') {
+                $('#repair-customer-search').val(data.name);
+                $('#repair-customer-id').val(data.id);
+            } else if (trigger === 'ledger') {
+                // Refresh the ledger customer select, then pre-select the new entry.
+                // The short delay allows the AJAX response from loadLedgerCustomers()
+                // to finish populating the <select> before we set its value.
+                loadLedgerCustomers();
+                setTimeout(function () {
+                    $('#ledger-entry-user').val(data.id);
+                }, 400);
+            }
+        });
+    });
 
     $(document).on('click', '.msp-modal-overlay', function (e) {
         if ($(e.target).hasClass('msp-modal-overlay')) {
